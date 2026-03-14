@@ -161,6 +161,7 @@ device_rs232_port_interface::~device_rs232_port_interface()
 #include "loopback.h"
 #include "mboardd.h"
 #include "nss_tvinterface.h"
+#include "console.h"
 #include "null_modem.h"
 #include "patchbox.h"
 #include "printer.h"
@@ -194,6 +195,7 @@ void default_rs232_devices(device_slot_interface &device)
 	device.option_add("scorpion",      SCORPION_IC);
 	device.option_add("sunkbd",        SUN_KBD_ADAPTOR);
 	device.option_add("swtpc8212",     SERIAL_TERMINAL_SWTPC8212);
+	device.option_add("console",       CONSOLE);
 	device.option_add("terminal",      SERIAL_TERMINAL);
 	device.option_add("votraxtnt",     SERIAL_VOTRAXTNT);
 }
