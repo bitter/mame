@@ -247,8 +247,10 @@ void h_88_3_device::modem_int(int data)
 
 void h_88_3_device::device_add_mconfig(machine_config &config)
 {
+	static constexpr XTAL INS8250_CLOCK = XTAL(1'843'200);
+
 	// LP DCE 0xE0-0xE7 (340 - 347 octal)
-	INS8250(config, m_lp, m_clock);
+	INS8250(config, m_lp, INS8250_CLOCK);
 	m_lp->out_tx_callback().set("dce1", FUNC(rs232_port_device::write_txd));
 	m_lp->out_dtr_callback().set("dce1", FUNC(rs232_port_device::write_dtr));
 	m_lp->out_rts_callback().set("dce1", FUNC(rs232_port_device::write_rts));
@@ -263,7 +265,7 @@ void h_88_3_device::device_add_mconfig(machine_config &config)
 
 
 	// AUX DCE 0xD0-0xD7 (320 - 327 octal)
-	INS8250(config, m_aux, m_clock);
+	INS8250(config, m_aux, INS8250_CLOCK);
 	m_aux->out_tx_callback().set("dce2", FUNC(rs232_port_device::write_txd));
 	m_aux->out_dtr_callback().set("dce2", FUNC(rs232_port_device::write_dtr));
 	m_aux->out_rts_callback().set("dce2", FUNC(rs232_port_device::write_rts));
@@ -278,7 +280,7 @@ void h_88_3_device::device_add_mconfig(machine_config &config)
 
 
 	// Modem DTE 0xD7-0xDF (330 - 337 octal)
-	INS8250(config, m_modem, m_clock);
+	INS8250(config, m_modem, INS8250_CLOCK);
 	m_modem->out_tx_callback().set("dte", FUNC(rs232_port_device::write_txd));
 	m_modem->out_dtr_callback().set("dte", FUNC(rs232_port_device::write_dtr));
 	m_modem->out_rts_callback().set("dte", FUNC(rs232_port_device::write_rts));
