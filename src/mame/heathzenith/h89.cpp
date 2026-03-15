@@ -926,6 +926,7 @@ static void tlb_options(device_slot_interface &device)
 	device.option_add("igc_super19",  HEATH_IGC_SUPER19);
 	device.option_add("igc_ultrarom", HEATH_IGC_ULTRA);
 	device.option_add("igc_watzman",  HEATH_IGC_WATZ);
+	device.option_add("serial",       HEATH_SERIAL_TLB);
 }
 
 static void intr_ctrl_options(device_slot_interface &device)

@@ -137,6 +137,8 @@ DEFINE_DEVICE_TYPE(HEATH_IGC_SUPER19,   heath_igc_super19_tlb_device, "heath_igc
 DEFINE_DEVICE_TYPE(HEATH_IGC_ULTRA,     heath_igc_ultra_tlb_device,   "heath_igc_ultra_tlb_device",   "Heath Terminal Logic Board w/ Ultra ROM plus SigmaSoft Interactive Graphics Controller")
 DEFINE_DEVICE_TYPE(HEATH_IGC_WATZ,      heath_igc_watz_tlb_device,    "heath_igc_watz_tlb_device",    "Heath Terminal Logic Board w/Watzman ROM plus SigmaSoft Interactive Graphics Controller")
 
+// Custom mods
+DEFINE_DEVICE_TYPE(HEATH_SERIAL_TLB, 	heath_serial_tlb_device, 	  "heath_serial_tlb", 			  "Serial RS-232 (headless)")
 
 device_heath_tlb_card_interface::device_heath_tlb_card_interface(const machine_config &mconfig, device_t &device) :
 	device_interface(device, "heathtlbdevice"),
@@ -2151,6 +2153,24 @@ ioport_constructor heath_igc_watz_tlb_device::device_input_ports() const
 	return INPUT_PORTS_NAME(igc_watz);
 }
 
+
+/**
+ *  RS-232 pass-through TLB for headless operation.
+ */
+heath_serial_tlb_device::heath_serial_tlb_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock) :
+	device_t(mconfig, HEATH_SERIAL_TLB, tag, owner, clock),
+	device_heath_tlb_card_interface(mconfig, *this),
+	m_rs232(*this, "rs232")
+{
+}
+
+void heath_serial_tlb_device::device_add_mconfig(machine_config &config)
+{
+	RS232_PORT(config, m_rs232, default_rs232_devices, "null_modem");
+	m_rs232->rxd_handler().set([this](int state) { m_slot->serial_out_b(state); });
+	m_rs232->cts_handler().set([this](int state) { m_slot->rts_out(state); });
+	m_rs232->dsr_handler().set([this](int state) { m_slot->dtr_out(state); });
+}
 
 /**
  * Terminal Logic Board Connector

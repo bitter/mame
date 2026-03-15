@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "bus/rs232/rs232.h"
 #include "cpu/z80/z80.h"
 #include "machine/clock.h"
 #include "machine/ins8250.h"
@@ -404,6 +405,37 @@ protected:
 	virtual ioport_constructor device_input_ports() const override ATTR_COLD;
 };
 
+/**
+ * heath_serial_tlb_device - RS-232 pass-through TLB for headless operation
+ *
+ * Replaces the H19 terminal with a plain RS-232 port, forwarding the CPU
+ * board's serial connection to an external device.  Select it with:
+ *
+ *   mame h89 -tlbc serial -tlbc:serial:rs232 <device>
+ *
+ * This mirrors a slight hardware mod I did of my H89, where I disconnected
+ * the serial lines from the terminal and exposed them as a DB-25 connector on
+ * the back of the case.  This allows me to route H89 traffic through my linux
+ * machine. And to use my linux machine as a terminal emulator. /Martin
+ */
+class heath_serial_tlb_device : public device_t,
+								public device_heath_tlb_card_interface
+{
+public:
+	heath_serial_tlb_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock = 0);
+
+	virtual void serial_in_w(int state) override { m_rs232->write_txd(state); }
+	virtual void dsr_in_w(int state) override {	m_rs232->write_dtr(state); }
+	virtual void cts_in_w(int state) override {	m_rs232->write_rts(state); }
+
+protected:
+	virtual void device_start() override ATTR_COLD { };
+	virtual void device_add_mconfig(machine_config &config) override ATTR_COLD;
+
+private:
+	required_device<rs232_port_device> m_rs232;
+};
+
 // Options for the standard H89 class of systems
 DECLARE_DEVICE_TYPE(HEATH_TLB,         heath_tlb_device)
 DECLARE_DEVICE_TYPE(HEATH_GP19,        heath_gp19_tlb_device)
@@ -418,6 +450,9 @@ DECLARE_DEVICE_TYPE(HEATH_IGC,         heath_igc_tlb_device)
 DECLARE_DEVICE_TYPE(HEATH_IGC_SUPER19, heath_igc_super19_tlb_device)
 DECLARE_DEVICE_TYPE(HEATH_IGC_ULTRA,   heath_igc_ultra_tlb_device)
 DECLARE_DEVICE_TYPE(HEATH_IGC_WATZ,    heath_igc_watz_tlb_device)
+
+// Custom mods
+DECLARE_DEVICE_TYPE(HEATH_SERIAL_TLB, heath_serial_tlb_device)
 
 /**
  * Connector for the Terminal Logic Board in an H-89 class computer
