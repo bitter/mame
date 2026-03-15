@@ -53,13 +53,15 @@ public:
 	posix_osd_ptty& operator=(posix_osd_ptty const &) = delete;
 	posix_osd_ptty& operator=(posix_osd_ptty &&) = delete;
 
-	posix_osd_ptty(int fd) noexcept : m_fd(fd)
+	posix_osd_ptty(int fd, int slavefd) noexcept : m_fd(fd), m_slavefd(slavefd)
 	{
 		assert(m_fd >= 0);
 	}
 
 	virtual ~posix_osd_ptty()
 	{
+		if (m_slavefd >= 0)
+			::close(m_slavefd);
 		::close(m_fd);
 	}
 
@@ -97,6 +99,7 @@ public:
 
 private:
 	int m_fd;
+	int m_slavefd;
 };
 
 } // anonymous namespace
@@ -152,6 +155,7 @@ std::error_condition posix_open_ptty(std::uint32_t openflags, osd_file::ptr &fil
 	}
 
 	::close(slavefd);
+	slavefd = -1;
 #else // (defined(sun) || defined(__sun)) && (defined(__SVR4) || defined(__svr4__))
 	struct termios tios;
 	std::memset(&tios, 0, sizeof(tios));
@@ -166,19 +170,19 @@ std::error_condition posix_open_ptty(std::uint32_t openflags, osd_file::ptr &fil
 	if (::openpty(&masterfd, &slavefd, nullptr, &tios, nullptr) < 0)
 		return std::error_condition(errno, std::generic_category());
 
-	::close(slavefd);
-
 	char slavepath[TTY_NAME_MAX + 1];
 	auto const result = ::ptsname_r(masterfd, slavepath, std::size(slavepath));
 	if (result == -1)
 	{
 		// pre-standard implementations of ptsname_r (e.g. FreeBSD, Tru64, HP-UX) return -1 and set errno
 		std::error_condition err(errno, std::generic_category());
+		::close(slavefd);
 		::close(masterfd);
 		return err;
 	}
 	else if (result != 0)
 	{
+		::close(slavefd);
 		::close(masterfd);
 		return std::error_condition(result, std::generic_category());
 	}
@@ -188,6 +192,7 @@ std::error_condition posix_open_ptty(std::uint32_t openflags, osd_file::ptr &fil
 		return std::error_condition(errno, std::generic_category());
 
 	::close(slavefd);
+	slavefd = -1;
 
 	std::vector<char> slavepath_storage;
 	try
@@ -226,7 +231,6 @@ std::error_condition posix_open_ptty(std::uint32_t openflags, osd_file::ptr &fil
 	if (::openpty(&masterfd, &slavefd, slavepath, &tios, nullptr) < 0)
 		return std::error_condition(errno, std::generic_category());
 
-	::close(slavefd);
 #endif
 #endif // (defined(sun) || defined(__sun)) && (defined(__SVR4) || defined(__svr4__))
 
@@ -234,6 +238,7 @@ std::error_condition posix_open_ptty(std::uint32_t openflags, osd_file::ptr &fil
 	if (oldflags < 0)
 	{
 		std::error_condition err(errno, std::generic_category());
+		if (slavefd >= 0) ::close(slavefd);
 		::close(masterfd);
 		return err;
 	}
@@ -241,6 +246,7 @@ std::error_condition posix_open_ptty(std::uint32_t openflags, osd_file::ptr &fil
 	if (::fcntl(masterfd, F_SETFL, oldflags | O_NONBLOCK) < 0)
 	{
 		std::error_condition err(errno, std::generic_category());
+		if (slavefd >= 0) ::close(slavefd);
 		::close(masterfd);
 		return err;
 	}
@@ -248,12 +254,17 @@ std::error_condition posix_open_ptty(std::uint32_t openflags, osd_file::ptr &fil
 	try
 	{
 		name = slavepath;
-		file = std::make_unique<posix_osd_ptty>(masterfd);
+		// Pass slavefd to keep the slave open for the lifetime of the PTY device.
+		// On macOS/BSD, closing the last slave fd resets the line discipline termios
+		// to defaults (re-enabling OPOST/ONLCR), which mangles binary data written
+		// by external processes. Holding the fd open prevents that reset.
+		file = std::make_unique<posix_osd_ptty>(masterfd, slavefd);
 		filesize = 0;
 		return std::error_condition();
 	}
 	catch (...)
 	{
+		if (slavefd >= 0) ::close(slavefd);
 		::close(masterfd);
 		return std::errc::not_enough_memory;
 	}
